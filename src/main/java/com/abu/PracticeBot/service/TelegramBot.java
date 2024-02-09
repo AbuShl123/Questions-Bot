@@ -1,6 +1,7 @@
 package com.abu.PracticeBot.service;
 
 import com.abu.PracticeBot.config.BotConfig;
+import com.abu.PracticeBot.model.InlineButtonsBuilder;
 import com.abu.PracticeBot.model.User;
 import com.abu.PracticeBot.model.UserRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +15,7 @@ import org.telegram.telegrambots.meta.api.objects.MessageEntity;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.sql.Timestamp;
@@ -31,7 +33,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     public TelegramBot() {
         super(BotConfig.TOKEN);
         this.initCommands();
-
+        System.out.println("BOT STARTED");
     }
 
     @Override
@@ -73,12 +75,37 @@ public class TelegramBot extends TelegramLongPollingBot {
             case "/start@AbuShl123Bot":
                 registerUser(message);
                 startCommandReceived(message.getChatId(), message.getChat().getFirstName());
+                startTest(message);
                 break;
 
             case "/test":
             case "/test@AbuShl123Bot":
 
         }
+    }
+
+    private void startTest(Message message) {
+        String question = "How many years of experience of working as an SDET you have?";
+
+        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+
+        var answerOptions =
+            InlineButtonsBuilder.builder()
+                .addRow()
+                    .button("1-3 years", "1-3")
+                    .button("3-6 years", "3-6")
+                    .button("6+ years", "6+")
+                .addRow()
+                    .button("I don't have experience", "0")
+                .build();
+
+        markup.setKeyboard(answerOptions);
+
+        SendMessage replyToUser = new SendMessage(String.valueOf(message.getChatId()), question);
+
+        replyToUser.setReplyMarkup(markup);
+
+        sendMessage(replyToUser);
     }
 
     private void registerUser(Message msg) {
@@ -117,6 +144,15 @@ public class TelegramBot extends TelegramLongPollingBot {
         try {
             execute(chat);
         } catch (TelegramApiException e) {
+            log.error("Failed to send message to user", e);
+            e.printStackTrace();
+        }
+    }
+
+    private void sendMessage(SendMessage message) {
+        try {
+            execute(message);
+        } catch (Exception e) {
             log.error("Failed to send message to user", e);
             e.printStackTrace();
         }
