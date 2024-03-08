@@ -19,6 +19,7 @@ public class BotConfig {
 
             BOT_NAME = properties.getProperty("bot.name");
             TOKEN = properties.getProperty("bot.token");
+            ADMIN_USERNAME = properties.getProperty("admin.username");
 
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -27,6 +28,7 @@ public class BotConfig {
 
     public static final String BOT_NAME;
     public static final String TOKEN;
+    public static final String ADMIN_USERNAME;
 
     private BotConfig() {
     }

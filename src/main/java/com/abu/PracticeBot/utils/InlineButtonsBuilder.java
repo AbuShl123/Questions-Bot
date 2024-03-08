@@ -1,4 +1,4 @@
-package com.abu.PracticeBot.model;
+package com.abu.PracticeBot.utils;
 
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
@@ -22,11 +22,11 @@ public class InlineButtonsBuilder {
         .build();
      */
 
+    private final Stack<List<InlineKeyboardButton>> rows = new Stack<>();
+
     public static InlineButtonsBuilder builder() {
         return new InlineButtonsBuilder();
     }
-
-    private final Stack<List<InlineKeyboardButton>> rows = new Stack<>();
 
     public InlineButtonsBuilder addRow() {
         rows.push(new ArrayList<>());

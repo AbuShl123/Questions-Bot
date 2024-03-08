@@ -1,38 +1,28 @@
 package com.abu.PracticeBot.service;
 
 import com.abu.PracticeBot.config.BotConfig;
-import com.abu.PracticeBot.model.InlineButtonsBuilder;
 import com.abu.PracticeBot.model.User;
 import com.abu.PracticeBot.model.UserRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
-import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.objects.Message;
-import org.telegram.telegrambots.meta.api.objects.MessageEntity;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
-import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-
-import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
 
 @Slf4j
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
 
     @Autowired
-    private UserRepository userRepository;
+    public UserRepository userRepository;
+
+    @Autowired
+    private UpdateHandler updateHandler;
 
     public TelegramBot() {
         super(BotConfig.TOKEN);
-        this.initCommands();
         System.out.println("BOT STARTED");
     }
 
@@ -43,113 +33,52 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
-        if (update.hasMessage() && update.getMessage().hasEntities()) {
-            handleCommandMessage(update.getMessage());
-        }
+        updateHandler.processUpdate(update);
     }
 
-    private void initCommands() {
-        List<BotCommand> botCommands = new ArrayList<>();
-        botCommands.add(new BotCommand("/test", "Starts testing"));
-
-        try {
-            this.execute(new SetMyCommands(botCommands, new BotCommandScopeDefault(), null));
-        } catch (Exception e) {
-            log.error("Failed to initialize bot commands", e);
-            e.printStackTrace();
-        }
+    @PostConstruct
+    private void init() {
+        updateHandler.registerBot(this);
     }
 
-    private void handleCommandMessage(Message message) {
-        Optional<MessageEntity> entity = message.getEntities()
-                .stream()
-                .filter(e -> "bot_command".equals(e.getType()))
-                .findFirst();
-
-        if (entity.isEmpty()) return;
-
-        String command = message.getText().substring(entity.get().getOffset(), entity.get().getLength());
-
-        switch (command) {
-            case "/start":
-            case "/start@AbuShl123Bot":
-                registerUser(message);
-                startCommandReceived(message.getChatId(), message.getChat().getFirstName());
-                startTest(message);
-                break;
-
-            case "/test":
-            case "/test@AbuShl123Bot":
-
-        }
+    public SendMessage generateReply(User user, String textToSend, Object... args) {
+        return generateReply(user.getChatId(), textToSend, args);
     }
 
-    private void startTest(Message message) {
-        String question = "How many years of experience of working as an SDET you have?";
+    public SendMessage generateReply(long chatId, String textToSend, Object... args) {
+        var sendMessage = new SendMessage();
 
-        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+        if (args.length != 0) textToSend = String.format(textToSend, args);
 
-        var answerOptions =
-            InlineButtonsBuilder.builder()
-                .addRow()
-                    .button("1-3 years", "1-3")
-                    .button("3-6 years", "3-6")
-                    .button("6+ years", "6+")
-                .addRow()
-                    .button("I don't have experience", "0")
-                .build();
+        sendMessage.setChatId(chatId);
+        sendMessage.setText(textToSend);
 
-        markup.setKeyboard(answerOptions);
-
-        SendMessage replyToUser = new SendMessage(String.valueOf(message.getChatId()), question);
-
-        replyToUser.setReplyMarkup(markup);
-
-        sendMessage(replyToUser);
+        return sendMessage;
     }
 
-    private void registerUser(Message msg) {
-        if (userRepository.findById(msg.getChatId()).isPresent()) return;
-
-        var chatId = msg.getChatId();
-        var chat = msg.getChat();
-
-        User user = new User();
-
-        user.setChatId(chatId);
-        user.setFirstname(chat.getFirstName());
-        user.setLastname(chat.getLastName());
-        user.setUsername(chat.getUserName());
-        user.setRegisterDate(new Timestamp(System.currentTimeMillis()));
-
-        System.out.println(user);
-
-        userRepository.save(user);
-
-        log.info("Added user to DB: " + user);
+    public void sendMessage(Update update, String textToSend, Object... args) {
+        sendMessage(update.getMessage().getChatId(), textToSend, args);
     }
 
-    private void startCommandReceived(long chatId, String name) {
-        String text = "Здравствуйте, " + name + "! Рады, что выбрали нас, давайте начнем опрос. \ud83d\ude00";
-
-        sendMessage(chatId, text);
+    public void sendMessage(User user, String textToSend, Object... args) {
+        sendMessage(user.getChatId(), textToSend, args);
     }
 
-    private void sendMessage(long chatId, String message) {
-        SendMessage chat = new SendMessage();
-
-        chat.setChatId(chatId);
-        chat.setText(message);
-
-        try {
-            execute(chat);
-        } catch (TelegramApiException e) {
-            log.error("Failed to send message to user", e);
-            e.printStackTrace();
-        }
+    public void sendMessage(User user, String textToSend, Boolean enableMarkdown, Object... args) {
+        sendMessage(user.getChatId(), textToSend, enableMarkdown, args);
     }
 
-    private void sendMessage(SendMessage message) {
+    public void sendMessage(long chatId, String textToSend, Object... args) {
+        sendMessage(chatId, textToSend, true, args);
+    }
+
+    public void sendMessage(long chatId, String textToSend, boolean enableMarkdown, Object... args) {
+        SendMessage message = generateReply(chatId, textToSend, args);
+        message.enableMarkdown(enableMarkdown);
+        sendMessage(message);
+    }
+
+    public void sendMessage(SendMessage message) {
         try {
             execute(message);
         } catch (Exception e) {
